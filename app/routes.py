@@ -1,7 +1,8 @@
-from app import app
+from app import app, db
 from fake_data.tasks import tasks_list
 from flask import request
 from datetime import datetime
+from app.models import Task
 
 
 
@@ -11,17 +12,17 @@ def hello_world():
 
 @app.route('/tasks')
 def get_tasks():
-    tasks = tasks_list
-    return tasks
+    tasks = db.session.execute(db.select(Task)).scalars().all()
+    return [t.to_dict() for t in tasks]
 
 
 @app.route('/tasks/<int:task_id>')
 def get_task_id(task_id):
-    tasks = tasks_list
-    for task in tasks:
-        if task['id'] == task_id:
-            return task
-    return {'Error': f"Task with ID {task_id} does NOT exist"}, 404
+    task = db.session.get(Task, task_id)
+    if task:
+        return task.to_dict()
+    else:
+        return {'Error': f"Task with ID {task_id} does NOT exist"}, 404
 
 @app.route('/tasks', methods=['POST'])
 def create_task():
@@ -38,12 +39,5 @@ def create_task():
 
     title = data.get('title')
     description = data.get('description')
-    new_tasks = {
-        "id": len(tasks_list) +1,
-        'title': title,
-        "description": description,
-        'completed': False,
-        "createdAt": datetime.utcnow()
-    }
-    tasks_list.append(new_tasks)
-    return new_tasks, 201
+    new_tasks = Task(title=title, description=description)
+    return new_tasks.to_dict(), 201
